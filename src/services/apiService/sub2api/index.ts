@@ -4,6 +4,8 @@
  * Sub2API differs from One-API/New-API backends in that authenticated endpoints
  * live under `/api/v1/*` and require a dashboard JWT.
  */
+import { isDenxioSub2ApiUrl } from "~/constants/denxio"
+import { isDialogueduiSub2ApiUrl } from "~/constants/dialoguedui"
 import type {
   AccountData,
   ApiServiceAccountRequest,
@@ -65,6 +67,11 @@ import {
 } from "./tokenRefresh"
 import { resyncSub2ApiAuthToken } from "./tokenResync"
 import {
+  DENXIO_CHECKIN_BEGIN_ENDPOINT,
+  DENXIO_CHECKIN_CLAIM_ENDPOINT,
+  DENXIO_CHECKIN_STATUS_ENDPOINT,
+  DIALOGUEDUI_CHECKIN_STATUS_ENDPOINT,
+  DIALOGUEDUI_CHECKIN_SUBMIT_ENDPOINT,
   SUB2API_AFFILIATE_ENDPOINT,
   SUB2API_ANNOUNCEMENTS_ENDPOINT,
   SUB2API_AUTH_ME_ENDPOINT,
@@ -73,6 +80,11 @@ import {
   SUB2API_KEYS_ENDPOINT,
   SUB2API_PUBLIC_SETTINGS_ENDPOINT,
   SUB2API_USAGE_STATS_ENDPOINT,
+  type DenxioCheckInBeginData,
+  type DenxioCheckInClaimData,
+  type DenxioCheckInStatus,
+  type DialogueduiCheckInResult,
+  type DialogueduiCheckInStatus,
   type Sub2ApiAffiliateData,
   type Sub2ApiAnnouncementData,
   type Sub2ApiAnnouncementListData,
@@ -662,6 +674,190 @@ export async function fetchInviteLink(
   return `${origin}/register?aff=${encodeURIComponent(inviteCode)}`
 }
 
+const fetchDialogueduiCheckInData = async <T>(
+  request: ApiServiceRequest,
+  endpoint: string,
+  options?: RequestInit,
+): Promise<T> => {
+  if (!isDialogueduiSub2ApiUrl(request.baseUrl)) {
+    throw new ApiError(
+      "Dialoguedui check-in is unavailable for this host",
+      undefined,
+      endpoint,
+    )
+  }
+
+  return executeAuthenticatedSub2ApiRequest(
+    { ...request, baseUrl: new URL(request.baseUrl).origin },
+    endpoint,
+    async (authRequest) => {
+      const payload = await fetchApi<unknown>(
+        authRequest,
+        { endpoint, options },
+        true,
+      )
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        throw new ApiError(
+          "Invalid Dialoguedui check-in response",
+          undefined,
+          endpoint,
+        )
+      }
+
+      const envelope = payload as {
+        ok?: unknown
+        data?: unknown
+        message?: unknown
+      }
+      if (envelope.ok !== true || !envelope.data) {
+        throw new ApiError(
+          typeof envelope.message === "string" && envelope.message.trim()
+            ? envelope.message
+            : "Dialoguedui check-in request failed",
+          undefined,
+          endpoint,
+        )
+      }
+
+      return envelope.data as T
+    },
+  )
+}
+
+const createInvalidDialogueduiCheckInResponseError = (endpoint: string) =>
+  new ApiError(
+    t("messages:errors.api.invalidResponseFormat"),
+    undefined,
+    endpoint,
+    API_ERROR_CODES.BUSINESS_ERROR,
+  )
+
+/**
+ * Deployment contract observed at https://token.dialoguedui.com/checkin/.
+ * This is not part of upstream Sub2API and must remain host-gated by callers.
+ */
+export function fetchDialogueduiCheckInStatus(
+  request: ApiServiceRequest,
+): Promise<DialogueduiCheckInStatus> {
+  return fetchDialogueduiCheckInData<unknown>(
+    request,
+    DIALOGUEDUI_CHECKIN_STATUS_ENDPOINT,
+    { method: "GET", cache: "no-store" },
+  ).then((data) => {
+    if (
+      !data ||
+      typeof data !== "object" ||
+      Array.isArray(data) ||
+      typeof (data as { signedToday?: unknown }).signedToday !== "boolean"
+    ) {
+      throw createInvalidDialogueduiCheckInResponseError(
+        DIALOGUEDUI_CHECKIN_STATUS_ENDPOINT,
+      )
+    }
+
+    return data as DialogueduiCheckInStatus
+  })
+}
+
+/** Submit the deployment-specific daily check-in request. */
+export function submitDialogueduiCheckIn(
+  request: ApiServiceRequest,
+): Promise<DialogueduiCheckInResult> {
+  return fetchDialogueduiCheckInData<unknown>(
+    request,
+    DIALOGUEDUI_CHECKIN_SUBMIT_ENDPOINT,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+  ).then((data) => {
+    if (
+      !data ||
+      typeof data !== "object" ||
+      Array.isArray(data) ||
+      typeof (data as { alreadyChecked?: unknown }).alreadyChecked !== "boolean"
+    ) {
+      throw createInvalidDialogueduiCheckInResponseError(
+        DIALOGUEDUI_CHECKIN_SUBMIT_ENDPOINT,
+      )
+    }
+
+    return data as DialogueduiCheckInResult
+  })
+}
+
+const DENXIO_CHECKIN_TIMEZONE = "Asia/Shanghai"
+
+const executeDenxioCheckInRequest = async <T>(
+  request: ApiServiceRequest,
+  endpoint: string,
+  options?: RequestInit,
+): Promise<T> => {
+  if (!isDenxioSub2ApiUrl(request.baseUrl)) {
+    throw new ApiError(
+      "Denxio check-in is unavailable for this host",
+      undefined,
+      endpoint,
+    )
+  }
+
+  return executeAuthenticatedSub2ApiRequest(
+    { ...request, baseUrl: new URL(request.baseUrl).origin },
+    endpoint,
+    async (authRequest) => {
+      const body = await fetchApi<unknown>(
+        authRequest,
+        { endpoint, options },
+        true,
+      )
+
+      return parseSub2ApiEnvelope<T>(body, endpoint)
+    },
+  )
+}
+
+export async function fetchDenxioCheckInStatus(
+  request: ApiServiceRequest,
+): Promise<DenxioCheckInStatus> {
+  const statusEndpoint = `${DENXIO_CHECKIN_STATUS_ENDPOINT}?timezone=${encodeURIComponent(DENXIO_CHECKIN_TIMEZONE)}`
+
+  return executeDenxioCheckInRequest<DenxioCheckInStatus>(
+    request,
+    statusEndpoint,
+    { method: "GET", cache: "no-store" },
+  )
+}
+
+export async function beginDenxioCheckIn(
+  request: ApiServiceRequest,
+): Promise<DenxioCheckInBeginData> {
+  return executeDenxioCheckInRequest<DenxioCheckInBeginData>(
+    request,
+    DENXIO_CHECKIN_BEGIN_ENDPOINT,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ timezone: DENXIO_CHECKIN_TIMEZONE }),
+    },
+  )
+}
+
+export async function claimDenxioCheckIn(
+  request: ApiServiceRequest,
+  token: string,
+): Promise<DenxioCheckInClaimData> {
+  return executeDenxioCheckInRequest<DenxioCheckInClaimData>(
+    request,
+    DENXIO_CHECKIN_CLAIM_ENDPOINT,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, timezone: DENXIO_CHECKIN_TIMEZONE }),
+    },
+  )
+}
+
 const createInvalidRuntimeModelsPayloadError = () =>
   new ApiError(
     t("messages:errors.api.invalidResponseFormat"),
@@ -882,6 +1078,14 @@ const createDisabledCheckInConfig = (
   ...checkIn,
   enableDetection: false,
 })
+
+const resolveSub2ApiCheckInConfig = (
+  baseUrl: string,
+  checkIn: CheckInConfig,
+): CheckInConfig =>
+  isDialogueduiSub2ApiUrl(baseUrl) || isDenxioSub2ApiUrl(baseUrl)
+    ? checkIn
+    : createDisabledCheckInConfig(checkIn)
 
 const createLoginRequiredHealthStatus = () => ({
   status: SiteHealthStatus.Warning,
@@ -1178,13 +1382,14 @@ export async function fetchSiteStatus(
  */
 export const extractDefaultExchangeRate = extractNewApiFamilyDefaultExchangeRate
 
-/**
- * Sub2API does not support the extension's built-in check-in flow.
- */
+/** Reports check-in support for explicitly integrated Sub2API deployments. */
 export async function fetchSupportCheckIn(
-  _request: ApiServiceRequest,
+  request: ApiServiceRequest,
 ): Promise<boolean | undefined> {
-  return false
+  return (
+    isDialogueduiSub2ApiUrl(request.baseUrl) ||
+    isDenxioSub2ApiUrl(request.baseUrl)
+  )
 }
 
 /**
@@ -1251,10 +1456,10 @@ export async function fetchTodayIncome(
 export async function fetchAccountData(
   request: ApiServiceAccountRequest,
 ): Promise<AccountData> {
-  const checkIn: CheckInConfig = {
-    ...(request.checkIn ?? { enableDetection: false }),
-    enableDetection: false,
-  }
+  const checkIn = resolveSub2ApiCheckInConfig(
+    request.baseUrl,
+    request.checkIn ?? { enableDetection: false },
+  )
 
   const { currentUser, todayUsage } =
     await fetchCurrentUserAndTodayUsage(request)
@@ -1268,7 +1473,8 @@ export async function fetchAccountData(
 export async function refreshAccountData(
   request: ApiServiceAccountRequest,
 ): Promise<RefreshAccountResult> {
-  const checkIn = createDisabledCheckInConfig(
+  const checkIn = resolveSub2ApiCheckInConfig(
+    request.baseUrl,
     request.checkIn ?? { enableDetection: false },
   )
   let hydratedRequest: HydratedSub2ApiAuth<ApiServiceAccountRequest> | null =

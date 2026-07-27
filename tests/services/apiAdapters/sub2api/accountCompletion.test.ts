@@ -175,6 +175,34 @@ describe("sub2ApiAccountCompletion", () => {
     })
   })
 
+  it("enables check-in for the Dialoguedui deployment", async () => {
+    mockFetchSiteStatus.mockResolvedValueOnce({ system_name: "Dialoguedui" })
+    mockExtractDefaultExchangeRate.mockReturnValueOnce(null)
+
+    const result = await sub2ApiAccountCompletion.complete(
+      {
+        url: "https://token.dialoguedui.com/custom/checkin_bonus_user",
+        requestedAuthType: AuthTypeEnum.AccessToken,
+        detected: {
+          userId: "12",
+          siteType: SITE_TYPES.SUB2API,
+          accessToken: "jwt-token",
+        },
+        context: {},
+      },
+      helpers,
+    )
+
+    expect(createInitialCheckInConfig).toHaveBeenCalledWith({
+      enableDetection: true,
+      autoCheckInEnabled: true,
+    })
+    expect(result.checkIn).toMatchObject({
+      enableDetection: true,
+      autoCheckInEnabled: true,
+    })
+  })
+
   it("classifies missing detected access token", async () => {
     await expect(
       sub2ApiAccountCompletion.complete(

@@ -1,4 +1,6 @@
 import { AUTO_DETECT_FAILURE_REASONS } from "~/constants/autoDetect"
+import { isDenxioSub2ApiUrl } from "~/constants/denxio"
+import { isDialogueduiSub2ApiUrl } from "~/constants/dialoguedui"
 import { UI_CONSTANTS } from "~/constants/ui"
 import { sub2ApiAccountBootstrap } from "~/services/apiAdapters/sub2api/accountBootstrap"
 import { AuthTypeEnum } from "~/types"
@@ -35,6 +37,9 @@ export const sub2ApiAccountCompletion: AccountCompletionCapability = {
       )
     }
 
+    const supportsCheckIn =
+      isDialogueduiSub2ApiUrl(url) || isDenxioSub2ApiUrl(url)
+
     return {
       username: helpers.trimString(detected.user?.username),
       siteName: await helpers.fetchSiteName(siteStatus),
@@ -45,8 +50,8 @@ export const sub2ApiAccountCompletion: AccountCompletionCapability = {
         UI_CONSTANTS.EXCHANGE_RATE.DEFAULT,
       authType: AuthTypeEnum.AccessToken,
       checkIn: helpers.createInitialCheckInConfig({
-        enableDetection: false,
-        autoCheckInEnabled: false,
+        enableDetection: supportsCheckIn,
+        autoCheckInEnabled: supportsCheckIn,
       }),
       ...(detected.sub2apiAuth ? { sub2apiAuth: detected.sub2apiAuth } : {}),
     }

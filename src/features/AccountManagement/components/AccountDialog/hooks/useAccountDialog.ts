@@ -444,7 +444,7 @@ export function useAccountDialog({
   const sub2apiUseRefreshToken = draft.sub2apiUseRefreshToken
   const sub2apiRefreshToken = draft.sub2apiRefreshToken
   const sub2apiTokenExpiresAt = draft.sub2apiTokenExpiresAt
-  const currentSitePolicy = getAccountDialogSitePolicy(siteType)
+  const currentSitePolicy = getAccountDialogSitePolicy(siteType, url)
   // Keep URL state readable inside async tab-detection guards without rerendering.
   selectedSiteUrlRef.current = url
   const isDetected =
@@ -809,7 +809,7 @@ export function useAccountDialog({
     }, [t, updateWarnOnDuplicateAccountAdd])
 
   useEffect(() => {
-    const policy = getAccountDialogSitePolicy(siteType)
+    const policy = getAccountDialogSitePolicy(siteType, url)
 
     updateDraft((prev) =>
       normalizeAccountDialogDraftForSitePolicy({
@@ -817,7 +817,7 @@ export function useAccountDialog({
         policy,
       }),
     )
-  }, [siteType, updateDraft])
+  }, [siteType, updateDraft, url])
 
   // useRef 保存跨渲染引用
   const newAccountRef = useRef<any>(null)
@@ -961,9 +961,10 @@ export function useAccountDialog({
       duplicateAccountWarningAcknowledgedSiteUrlRef.current = null
       hasConsumedAutoFillCurrentSiteUrlRef.current = Boolean(nextPrefill)
       const nextSiteType = nextPrefill?.siteType ?? SITE_TYPES.UNKNOWN
-      const policy = getAccountDialogSitePolicy(nextSiteType)
+      const nextUrl = nextPrefill?.siteUrl ?? ""
+      const policy = getAccountDialogSitePolicy(nextSiteType, nextUrl)
       hasExplicitAuthTypeRef.current = Boolean(nextPrefill?.authType)
-      setUrl(nextPrefill?.siteUrl ?? "")
+      setUrl(nextUrl)
       setDraft(
         normalizeAccountDialogDraftForSitePolicy({
           draft: {
@@ -1003,7 +1004,10 @@ export function useAccountDialog({
             siteAccount.site_type,
             Boolean(siteAccount.sub2apiAuth),
           )
-          const policy = getAccountDialogSitePolicy(normalizedSiteType)
+          const policy = getAccountDialogSitePolicy(
+            normalizedSiteType,
+            siteAccount.site_url,
+          )
           const hasActiveSub2ApiRefreshToken =
             policy.allowSub2ApiRefreshTokenState && Boolean(refreshToken.trim())
           hasExplicitAuthTypeRef.current = true
@@ -1382,7 +1386,7 @@ export function useAccountDialog({
 
   const shouldDeferAccountSaveSuccess = useCallback(
     (result: AccountSaveResponse) => {
-      const policy = getAccountDialogSitePolicy(siteType)
+      const policy = getAccountDialogSitePolicy(siteType, url)
 
       return (
         shouldDeferAccountSaveSuccessForAccountDialogSite({
@@ -1396,7 +1400,7 @@ export function useAccountDialog({
         result.accountId.trim().length > 0
       )
     },
-    [autoProvisionKeyOnAccountAdd, mode, siteType],
+    [autoProvisionKeyOnAccountAdd, mode, siteType, url],
   )
 
   const handleImportCookieAuthSessionCookie = async () => {
@@ -1788,7 +1792,7 @@ export function useAccountDialog({
         const nextSiteType = isAccountSiteType(resultData.siteType)
           ? resultData.siteType
           : siteType
-        const policy = getAccountDialogSitePolicy(nextSiteType)
+        const policy = getAccountDialogSitePolicy(nextSiteType, url)
 
         setDraft((prev) =>
           buildDraftFromAutoDetectResult({
@@ -1913,7 +1917,7 @@ export function useAccountDialog({
 
     try {
       setIsSaving(true)
-      const policy = getAccountDialogSitePolicy(siteType)
+      const policy = getAccountDialogSitePolicy(siteType, url)
       const shouldDeferSuccessForSitePolicy =
         shouldDeferAccountSaveSuccessForAccountDialogSite({
           policy,

@@ -1,3 +1,5 @@
+import { isDenxioSub2ApiUrl } from "~/constants/denxio"
+import { isDialogueduiSub2ApiUrl } from "~/constants/dialoguedui"
 import { SITE_TYPES, type AccountSiteType } from "~/constants/siteType"
 import type { AccountDialogDraft } from "~/features/AccountManagement/components/AccountDialog/models"
 import {
@@ -52,6 +54,7 @@ const ACCOUNT_DIALOG_SITE_POLICIES: Partial<
  */
 export function getAccountDialogSitePolicy(
   siteType: AccountSiteType,
+  siteUrl = "",
 ): AccountDialogSitePolicy {
   const productProfile = getAccountSiteProductProfile(siteType)
   const workflowPolicy =
@@ -63,7 +66,9 @@ export function getAccountDialogSitePolicy(
     allowCookieAuthSession: productProfile.auth.supportsCookieAuth,
     allowCookieAutoImport: productProfile.auth.supportsCookieAuth,
     allowBuiltInCheckInDetection:
-      productProfile.auth.supportsBuiltInCheckInDetection,
+      productProfile.auth.supportsBuiltInCheckInDetection ||
+      (siteType === SITE_TYPES.SUB2API &&
+        (isDialogueduiSub2ApiUrl(siteUrl) || isDenxioSub2ApiUrl(siteUrl))),
     allowSub2ApiRefreshTokenState:
       productProfile.supplementalAuth.kind ===
       ACCOUNT_SITE_SUPPLEMENTAL_AUTH_KINDS.Sub2ApiRefreshToken,

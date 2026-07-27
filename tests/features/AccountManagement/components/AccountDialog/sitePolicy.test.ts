@@ -203,6 +203,33 @@ describe("Account Dialog site policy", () => {
     ).toBe(false)
   })
 
+  it("enables check-in only for the Dialoguedui Sub2API deployment", () => {
+    const policy = getAccountDialogSitePolicy(
+      SITE_TYPES.SUB2API,
+      "https://token.dialoguedui.com/custom/checkin_bonus_user",
+    )
+    const normalized = normalizeAccountDialogDraftForSitePolicy({
+      draft: createDraft({ siteType: SITE_TYPES.SUB2API }),
+      policy,
+    })
+
+    expect(policy.allowBuiltInCheckInDetection).toBe(true)
+    expect(normalized.checkIn.enableDetection).toBe(true)
+    expect(normalized.checkIn.autoCheckInEnabled).toBe(true)
+    expect(
+      getAccountDialogSitePolicy(
+        SITE_TYPES.SUB2API,
+        "https://token.dialoguedui.com.evil.example",
+      ).allowBuiltInCheckInDetection,
+    ).toBe(false)
+    expect(
+      getAccountDialogSitePolicy(
+        SITE_TYPES.SUB2API,
+        "http://token.dialoguedui.com",
+      ).allowBuiltInCheckInDetection,
+    ).toBe(false)
+  })
+
   it("normalizes AIHubMix detected browser sessions to saved access-token accounts", () => {
     const policy = getAccountDialogSitePolicy(SITE_TYPES.AIHUBMIX)
     const normalized = normalizeAccountDialogDraftForSitePolicy({

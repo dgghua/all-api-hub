@@ -12,6 +12,7 @@ import {
   fetchAccountTokens,
   fetchCheckInStatus,
   fetchCurrentUser,
+  fetchDialogueduiCheckInStatus,
   fetchInviteLink,
   fetchSiteStatus,
   fetchSub2ApiAnnouncements,
@@ -25,6 +26,7 @@ import {
   getOrCreateAccessToken,
   markSub2ApiAnnouncementRead,
   refreshAccountData,
+  submitDialogueduiCheckIn,
   updateApiToken,
 } from "~/services/apiService/sub2api"
 import type { Sub2ApiAuthSessionRequest } from "~/services/apiService/sub2api/authSession"
@@ -311,6 +313,12 @@ describe("apiService sub2api parsing", () => {
     } as any)
 
     await expect(fetchSupportCheckIn(request as any)).resolves.toBe(false)
+    await expect(
+      fetchSupportCheckIn({
+        ...request,
+        baseUrl: "https://token.dialoguedui.com",
+      } as any),
+    ).resolves.toBe(true)
     await expect(fetchCheckInStatus(request as any)).resolves.toBeUndefined()
     await expect(fetchTodayUsage(request as any)).resolves.toEqual({
       today_quota_consumption: 125000,
@@ -693,6 +701,36 @@ describe("apiService sub2api refreshAccountData", () => {
     expect((vi.mocked(fetchApi).mock.calls[1]?.[1] as any)?.endpoint).toBe(
       "/api/v1/usage/stats?period=today",
     )
+  })
+
+  it("preserves check-in settings when refreshing the Dialoguedui deployment", async () => {
+    vi.mocked(fetchApi)
+      .mockResolvedValueOnce({
+        code: 0,
+        message: "ok",
+        data: { id: 1, username: "alice", balance: 2 },
+      } as any)
+      .mockResolvedValueOnce({
+        code: 0,
+        message: "ok",
+        data: {
+          total_requests: 0,
+          total_input_tokens: 0,
+          total_output_tokens: 0,
+          total_actual_cost: 0,
+        },
+      } as any)
+
+    const result = await refreshAccountData(
+      createRequest({ baseUrl: "https://token.dialoguedui.com" }),
+    )
+
+    expect(result.success).toBe(true)
+    expect(result.data?.checkIn).toMatchObject({
+      enableDetection: true,
+      autoCheckInEnabled: true,
+      siteStatus: { isCheckedInToday: false },
+    })
   })
 
   it("skips Sub2API today usage when includeTodayCashflow is false", async () => {
@@ -2020,6 +2058,112 @@ describe("apiService sub2api exported operations", () => {
         enableDetection: false,
         autoCheckInEnabled: true,
       }),
+    })
+  })
+
+  it("uses the deployment-specific Dialoguedui check-in contract", async () => {
+    const request = {
+      baseUrl: "https://token.dialoguedui.com/custom/checkin_bonus_user",
+      auth: {
+        authType: AuthTypeEnum.AccessToken,
+        accessToken: "jwt-token",
+      },
+    }
+    vi.mocked(fetchApi)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { signedToday: false, config: { enabled: true } },
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { alreadyChecked: false },
+      } as any)
+
+    await expect(fetchDialogueduiCheckInStatus(request)).resolves.toMatchObject(
+      {
+        signedToday: false,
+      },
+    )
+    await expect(submitDialogueduiCheckIn(request)).resolves.toMatchObject({
+      alreadyChecked: false,
+    })
+
+    expect(fetchApi).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        baseUrl: "https://token.dialoguedui.com",
+        auth: expect.objectContaining({ accessToken: "jwt-token" }),
+      }),
+      expect.objectContaining({
+        endpoint: "/checkin/api/status",
+        options: expect.objectContaining({ method: "GET" }),
+      }),
+      true,
+    )
+    expect(fetchApi).toHaveBeenNthCalledWith(
+      2,
+      expect.any(Object),
+      expect.objectContaining({
+        endpoint: "/checkin/api/checkin",
+        options: expect.objectContaining({ method: "POST", body: "{}" }),
+      }),
+      true,
+    )
+  })
+
+  it("rejects Dialoguedui check-in requests for other hosts", async () => {
+    await expect(
+      fetchDialogueduiCheckInStatus({
+        baseUrl: "https://token.dialoguedui.com.evil.example",
+        auth: {
+          authType: AuthTypeEnum.AccessToken,
+          accessToken: "jwt-token",
+        },
+      }),
+    ).rejects.toThrow("unavailable for this host")
+    expect(fetchApi).not.toHaveBeenCalled()
+  })
+
+  it("rejects malformed Dialoguedui check-in response data", async () => {
+    const request = {
+      baseUrl: "https://token.dialoguedui.com",
+      auth: {
+        authType: AuthTypeEnum.AccessToken,
+        accessToken: "jwt-token",
+      },
+    }
+    vi.mocked(fetchApi)
+      .mockResolvedValueOnce({ ok: true, data: {} } as any)
+      .mockResolvedValueOnce({ ok: true, data: {} } as any)
+
+    await expect(fetchDialogueduiCheckInStatus(request)).rejects.toThrow(
+      "messages:errors.api.invalidResponseFormat",
+    )
+    await expect(submitDialogueduiCheckIn(request)).rejects.toThrow(
+      "messages:errors.api.invalidResponseFormat",
+    )
+  })
+
+  it("preserves check-in settings for the Dialoguedui deployment", async () => {
+    vi.mocked(fetchApi).mockResolvedValueOnce({
+      code: 0,
+      message: "ok",
+      data: { id: "7", username: "alice", balance: 1.5 },
+    } as any)
+
+    const result = await fetchAccountData({
+      ...baseRequest,
+      baseUrl: "https://token.dialoguedui.com",
+      checkIn: {
+        enableDetection: true,
+        autoCheckInEnabled: true,
+        siteStatus: { isCheckedInToday: false },
+      },
+    } as any)
+
+    expect(result.checkIn).toMatchObject({
+      enableDetection: true,
+      autoCheckInEnabled: true,
     })
   })
 

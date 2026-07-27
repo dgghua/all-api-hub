@@ -13,6 +13,11 @@ export const SUB2API_ANNOUNCEMENTS_ENDPOINT = "/api/v1/announcements"
 export const SUB2API_AVAILABLE_GROUPS_ENDPOINT = "/api/v1/groups/available"
 export const SUB2API_GROUP_RATES_ENDPOINT = "/api/v1/groups/rates"
 export const SUB2API_USAGE_STATS_ENDPOINT = "/api/v1/usage/stats"
+export const DIALOGUEDUI_CHECKIN_STATUS_ENDPOINT = "/checkin/api/status"
+export const DIALOGUEDUI_CHECKIN_SUBMIT_ENDPOINT = "/checkin/api/checkin"
+export const DENXIO_CHECKIN_STATUS_ENDPOINT = "/tbe-sponsor-checkin/status"
+export const DENXIO_CHECKIN_BEGIN_ENDPOINT = "/tbe-sponsor-checkin/normal/begin"
+export const DENXIO_CHECKIN_CLAIM_ENDPOINT = "/tbe-sponsor-checkin/normal/claim"
 
 type IntLike = number | string
 type NumericLike = number | string
@@ -99,6 +104,20 @@ export type Sub2ApiUsageStatsData = {
   total_actual_cost?: NumericLike | null
 }
 
+export type DialogueduiCheckInStatus = {
+  signedToday: boolean
+  config?: {
+    enabled?: boolean
+  }
+  [key: string]: unknown
+}
+
+export type DialogueduiCheckInResult = {
+  alreadyChecked: boolean
+  status?: DialogueduiCheckInStatus
+  [key: string]: unknown
+}
+
 export type Sub2ApiAnnouncementData = {
   id?: IntLike | null
   title?: string | null
@@ -130,3 +149,18 @@ export type Sub2ApiUpdateKeyPayload = Sub2ApiKeyWritePayloadBase & {
   expires_at?: string
   reset_quota?: boolean
 }
+
+export type DenxioCheckInStatus = {
+  signed_in_today?: boolean
+  streak?: number
+  total_checkins?: number
+  [key: string]: unknown
+}
+
+export type DenxioCheckInBeginData = {
+  token: string
+  wait_seconds: number
+  sponsor?: Record<string, unknown>
+}
+
+export type DenxioCheckInClaimData = Record<string, unknown>

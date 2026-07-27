@@ -147,7 +147,10 @@ export default function AccountDialog({
     isRequestingCookieAuthPermissions: state.isRequestingCookieAuthPermissions,
     onRequestCookieAuthPermissions: handlers.handleRequestCookieAuthPermissions,
   }
-  const currentSitePolicy = getAccountDialogSitePolicy(state.siteType)
+  const currentSitePolicy = getAccountDialogSitePolicy(
+    state.siteType,
+    state.url,
+  )
   const dialogTitle =
     mode === DIALOG_MODES.ADD
       ? tAccountDialog("title.add")
