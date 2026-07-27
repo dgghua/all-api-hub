@@ -151,9 +151,16 @@ export type Sub2ApiUpdateKeyPayload = Sub2ApiKeyWritePayloadBase & {
 }
 
 export type DenxioCheckInStatus = {
-  signed_in_today?: boolean
-  streak?: number
-  total_checkins?: number
+  today?: string
+  normal_done?: boolean
+  ad_done?: boolean
+  makeup_done?: boolean
+  config?: {
+    normal_checkin_enabled?: boolean
+    ad_checkin_enabled?: boolean
+    ad_makeup_enabled?: boolean
+    makeup_days_limit?: number
+  }
   [key: string]: unknown
 }
 
@@ -163,4 +170,12 @@ export type DenxioCheckInBeginData = {
   sponsor?: Record<string, unknown>
 }
 
-export type DenxioCheckInClaimData = Record<string, unknown>
+export type DenxioCheckInClaimData = {
+  record?: {
+    amount?: number
+    checkin_type?: string
+    target_date?: string
+    created_at?: string
+  }
+  [key: string]: unknown
+}

@@ -53,7 +53,7 @@ export const denxioSub2ApiProvider: AutoCheckinProvider = {
 
     try {
       const status = await fetchDenxioCheckInStatus(request)
-      if (status.signed_in_today) {
+      if (status.normal_done) {
         return {
           status: CHECKIN_RESULT_STATUS.ALREADY_CHECKED,
           messageKey:

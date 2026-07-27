@@ -812,9 +812,43 @@ const executeDenxioCheckInRequest = async <T>(
         true,
       )
 
-      return parseSub2ApiEnvelope<T>(body, endpoint)
+      return parseDenxioCheckInResponse<T>(body, endpoint)
     },
   )
+}
+
+const createInvalidDenxioCheckInResponseError = (endpoint: string) =>
+  new ApiError(
+    t("messages:errors.api.invalidResponseFormat"),
+    undefined,
+    endpoint,
+    API_ERROR_CODES.BUSINESS_ERROR,
+  )
+
+const parseDenxioCheckInResponse = <T>(
+  body: unknown,
+  endpoint: string,
+): T => {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw createInvalidDenxioCheckInResponseError(endpoint)
+  }
+
+  const record = body as Record<string, unknown>
+
+  if (typeof record.code === "number" && typeof record.message === "string") {
+    if (record.code !== 0) {
+      throw new ApiError(
+        record.message.trim() || t("messages:errors.api.invalidResponseFormat"),
+        undefined,
+        endpoint,
+        API_ERROR_CODES.BUSINESS_ERROR,
+      )
+    }
+
+    return record.data as T
+  }
+
+  return body as T
 }
 
 export async function fetchDenxioCheckInStatus(

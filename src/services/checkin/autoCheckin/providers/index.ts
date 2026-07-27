@@ -44,7 +44,7 @@ const sub2ApiRouterProvider: AutoCheckinProvider = {
     return sub2ApiProviders.some((p) => p.canCheckIn(account))
   },
   async checkIn(account, context) {
-    const provider = sub2ApiProviders.find((p) => p.canCheckIn(account))
+    const provider = sub2ApiProviders.find((p) => p.canCheckIn(account as SiteAccount))
     if (!provider) {
       return {
         status: CHECKIN_RESULT_STATUS.FAILED,

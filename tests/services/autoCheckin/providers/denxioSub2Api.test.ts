@@ -77,7 +77,7 @@ describe("denxioSub2ApiProvider", () => {
 
   it("returns already checked without proceeding to begin", async () => {
     vi.mocked(fetchDenxioCheckInStatus).mockResolvedValueOnce({
-      signed_in_today: true,
+      normal_done: true,
     })
 
     await expect(
@@ -91,7 +91,7 @@ describe("denxioSub2ApiProvider", () => {
 
   it("executes begin-wait-claim flow when not yet checked in", async () => {
     vi.mocked(fetchDenxioCheckInStatus).mockResolvedValueOnce({
-      signed_in_today: false,
+      normal_done: false,
     })
     vi.mocked(beginDenxioCheckIn).mockResolvedValueOnce({
       token: "session-token",
